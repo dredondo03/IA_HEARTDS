@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import pandas as pd
 
@@ -152,4 +151,4 @@ if "bundle" in st.session_state:
     )
 
     st.pyplot(fig)
-```
+
