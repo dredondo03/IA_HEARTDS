@@ -1,3 +1,4 @@
+```python
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -21,7 +22,7 @@ def preprocess_data(df, target_column):
 
     df = df.copy()
 
-    # LIMPIAR NOMBRES
+    # LIMPIAR COLUMNAS
     df.columns = df.columns.str.strip()
 
     # ELIMINAR NULOS
@@ -31,7 +32,7 @@ def preprocess_data(df, target_column):
 
     categorical_values = {}
 
-    # CONVERTIR STRINGS NUMÉRICOS
+    # CONVERTIR COLUMNAS NUMÉRICAS
     for col in df.columns:
 
         try:
@@ -39,7 +40,7 @@ def preprocess_data(df, target_column):
         except:
             pass
 
-    # ENCODING SOLO OBJECTS
+    # ENCODING PARA CATEGÓRICAS
     for col in df.columns:
 
         if df[col].dtype == "object":
@@ -62,19 +63,17 @@ def preprocess_data(df, target_column):
 
     feature_columns = X.columns.tolist()
 
-# COLUMNAS NUMÉRICAS
-numeric_columns = X.select_dtypes(
-    include=['int64', 'float64']
-).columns.tolist()
+    # COLUMNAS NUMÉRICAS
+    numeric_columns = X.select_dtypes(
+        include=['int64', 'float64']
+    ).columns.tolist()
 
-# ESCALAR SOLO NUMÉRICAS
-scaler = StandardScaler()
+    # ESCALADO
+    scaler = StandardScaler()
 
-X[numeric_columns] = scaler.fit_transform(
-    X[numeric_columns]
-)
-
-
+    X[numeric_columns] = scaler.fit_transform(
+        X[numeric_columns]
+    )
 
     X_train, X_test, y_train, y_test = train_test_split(
         X,
@@ -199,7 +198,7 @@ def predict_patient(bundle, input_data):
             df[col].astype(str)
         )
 
-    # NUMÉRICOS
+    # ESCALADO
     df[numeric_columns] = scaler.transform(
         df[numeric_columns]
     )
@@ -227,4 +226,4 @@ def plot_comparison(df):
     ax.set_ylabel("Accuracy")
 
     return fig
-
+```
