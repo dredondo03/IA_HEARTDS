@@ -1,63 +1,87 @@
 import streamlit as st
+import pandas as pd
+
 from logic import (
     train_models,
-    make_prediction,
     compare_models,
     plot_comparison
 )
 
 st.set_page_config(
-    page_title="Heart Disease Prediction",
+    page_title="ML Model Trainer",
     layout="wide"
 )
 
-st.title("❤️ Heart Disease Prediction")
+st.title("🧠 Machine Learning Trainer")
 
-st.markdown("Demo comparativa de modelos de Machine Learning")
+st.markdown(
+    "Carga un dataset CSV y entrena modelos en tiempo real."
+)
 
-# ENTRENAR MODELOS
-models, results, best_model = train_models()
+# SUBIR CSV
+uploaded_file = st.file_uploader(
+    "Upload CSV Dataset",
+    type=["csv"]
+)
 
-# SIDEBAR
-st.sidebar.header("Patient Data")
+if uploaded_file is not None:
 
-age = st.sidebar.slider("Age", 20, 100, 50)
-cholesterol = st.sidebar.slider("Cholesterol", 50, 600, 200)
-max_hr = st.sidebar.slider("Max Heart Rate", 60, 220, 150)
-oldpeak = st.sidebar.slider("Oldpeak", 0.0, 6.0, 1.0)
+    # LEER DATASET
+    df = pd.read_csv(uploaded_file)
 
-# PREDICCIÓN
-if st.sidebar.button("Predict"):
+    st.subheader("Dataset Preview")
 
-    prediction = make_prediction(
-        best_model,
-        age,
-        cholesterol,
-        max_hr,
-        oldpeak
+    st.dataframe(df.head())
+
+    st.divider()
+
+    # SELECCIONAR TARGET
+    target_column = st.selectbox(
+        "Select Target Column",
+        df.columns
     )
 
-    st.subheader("Prediction Result")
+    if st.button("Train Models"):
 
-    if prediction == 1:
-        st.error("High Risk of Heart Disease")
-    else:
-        st.success("Low Risk of Heart Disease")
+        with st.spinner("Training models..."):
 
-st.divider()
+            results = train_models(
+                df,
+                target_column
+            )
 
-# TABLA COMPARATIVA
-st.subheader("Model Comparison")
+            comparison_df = compare_models(
+                results
+            )
 
-comparison_df = compare_models(results)
+        st.success("Training completed!")
 
-st.dataframe(comparison_df)
+        st.divider()
 
-st.divider()
+        # TABLA
+        st.subheader("Model Comparison")
 
-# GRÁFICA
-st.subheader("Performance Comparison")
+        st.dataframe(comparison_df)
 
-fig = plot_comparison(comparison_df)
+        st.divider()
 
-st.pyplot(fig)
+        # MEJOR MODELO
+        best_model = comparison_df.iloc[0]
+
+        st.subheader("Best Model")
+
+        st.info(
+            f"{best_model['Model']} "
+            f"- Accuracy: {best_model['Accuracy']}"
+        )
+
+        st.divider()
+
+        # GRÁFICA
+        st.subheader("Performance Comparison")
+
+        fig = plot_comparison(
+            comparison_df
+        )
+
+        st.pyplot(fig)
