@@ -1,124 +1,121 @@
-"""
-logic.py — Streamlit logic layer
-Loads the pre-trained model bundle (heart_model_bundle.pkl)
-produced by heart_disease_training.ipynb (Colab).
-
-No training happens here — Streamlit only loads and predicts.
-"""
-
-import joblib
-import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+
+from sklearn.metrics import accuracy_score
 
 
-# ─────────────────────────────────────────────
-# 1. LOAD BUNDLE
-# ─────────────────────────────────────────────
+def load_data():
 
-def load_bundle(path: str = "heart_model_bundle.pkl") -> dict:
-    """
-    Load the pre-trained model bundle saved from Colab.
-    Returns the full bundle dict.
-    """
-    bundle = joblib.load(path)
-    return bundle
+    data = load_breast_cancer()
+
+    X = pd.DataFrame(
+        data.data,
+        columns=data.feature_names
+    )
+
+    y = data.target
+
+    return train_test_split(
+        X,
+        y,
+        test_size=0.2,
+        random_state=42
+    )
 
 
-# ─────────────────────────────────────────────
-# 2. DATASET SUMMARY (for EDA display)
-# ─────────────────────────────────────────────
+def train_models():
 
-def get_dataset_summary(bundle: dict) -> dict:
-    """Extract dataset info stored inside the bundle."""
-    return {
-        "train_samples" : bundle["X_train_shape"][0],
-        "test_samples"  : bundle["X_test_shape"][0],
-        "n_features"    : bundle["X_train_shape"][1],
-        "class_dist"    : bundle["class_dist"],
-        "feature_cols"  : bundle["feature_cols"],
-        "numerical"     : bundle["numerical"],
-        "categorical"   : bundle["categorical"],
+    X_train, X_test, y_train, y_test = load_data()
+
+    models = {
+        "Random Forest": RandomForestClassifier(),
+        "Logistic Regression": LogisticRegression(max_iter=5000),
+        "SVM": SVC()
     }
 
+    results = {}
 
-# ─────────────────────────────────────────────
-# 3. METRICS HELPERS
-# ─────────────────────────────────────────────
+    for name, model in models.items():
 
-def get_comparison_df(bundle: dict) -> pd.DataFrame:
-    """Return the model comparison DataFrame from the bundle."""
-    display_cols = [
-        "Model", "Accuracy Train", "Accuracy Test",
-        "Precision", "Recall", "F1-Score",
-        "ROC-AUC", "CV F1 Mean", "CV F1 Std", "Fit Status",
-    ]
-    df = bundle["comparison_df"]
-    return df[[c for c in display_cols if c in df.columns]]
+        model.fit(X_train, y_train)
 
+        predictions = model.predict(X_test)
 
-def get_best_metrics(bundle: dict) -> dict:
-    """Return metrics dict for the best model."""
-    name = bundle["model_name"]
-    return bundle["metrics"][name]
+        accuracy = accuracy_score(
+            y_test,
+            predictions
+        )
 
+        results[name] = {
+            "model": model,
+            "accuracy": accuracy
+        }
 
-def get_all_metrics(bundle: dict) -> dict:
-    """Return metrics dict for all models."""
-    return bundle["metrics"]
+    best_name = max(
+        results,
+        key=lambda x: results[x]["accuracy"]
+    )
 
+    best_model = results[best_name]["model"]
 
-def get_confusion_matrices(bundle: dict) -> dict:
-    """Return {model_name: confusion_matrix} dict."""
-    return bundle["confusion_matrices"]
+    return models, results, best_model
 
 
-def get_roc_data(bundle: dict) -> dict:
-    """Return roc_data and auc scores."""
-    return bundle["roc_data"], bundle["roc_auc"]
+def compare_models(results):
+
+    data = []
+
+    for name, info in results.items():
+
+        data.append({
+            "Model": name,
+            "Accuracy": round(
+                info["accuracy"],
+                4
+            )
+        })
+
+    return pd.DataFrame(data)
 
 
-def get_feature_importances(bundle: dict) -> pd.Series:
-    """Return feature importances from Random Forest, sorted descending."""
-    fi = bundle["feature_importances"]
-    return pd.Series(fi).sort_values(ascending=False)
+def plot_comparison(df):
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    ax.bar(
+        df["Model"],
+        df["Accuracy"]
+    )
+
+    ax.set_title("Accuracy Comparison")
+
+    return fig
 
 
-# ─────────────────────────────────────────────
-# 4. SINGLE-PATIENT PREDICTION
-# ─────────────────────────────────────────────
+def make_prediction(
+    model,
+    age,
+    cholesterol,
+    max_hr,
+    oldpeak
+):
 
-def predict_single(bundle: dict, input_dict: dict):
-    """
-    Predict heart disease for one patient.
+    import numpy as np
 
-    Parameters
-    ----------
-    bundle     : loaded pkl bundle
-    input_dict : {feature_name: raw_value} with original column names
+    sample = np.zeros((1, 30))
 
-    Returns
-    -------
-    prediction : int  (0 = No Disease, 1 = Heart Disease)
-    probability: float (confidence for predicted class)
-    """
-    model        = bundle["model"]
-    scaler       = bundle["scaler"]
-    encoder_map  = bundle["encoder_map"]
-    numerical    = bundle["numerical"]
-    categorical  = bundle["categorical"]
+    sample[0][0] = age
+    sample[0][1] = cholesterol
+    sample[0][2] = max_hr
+    sample[0][3] = oldpeak
 
-    row = pd.DataFrame([input_dict])
+    prediction = model.predict(sample)
 
-    for col in categorical:
-        le = encoder_map[col]
-        row[col] = le.transform(row[col])
-
-    row[numerical] = scaler.transform(row[numerical])
-
-    prediction = int(model.predict(row)[0])
-    try:
-        prob = float(model.predict_proba(row)[0][prediction])
-    except AttributeError:
-        prob = None
-
-    return prediction, prob
+    return prediction[0]
