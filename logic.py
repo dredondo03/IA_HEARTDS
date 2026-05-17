@@ -22,7 +22,7 @@ def preprocess_data(df, target_column):
 
     df = df.copy()
 
-    # LIMPIAR COLUMNAS
+    # LIMPIAR NOMBRES
     df.columns = df.columns.str.strip()
 
     # ELIMINAR NULOS
@@ -32,21 +32,25 @@ def preprocess_data(df, target_column):
 
     categorical_values = {}
 
-    # CONVERTIR NUMÉRICOS CUANDO SEA POSIBLE
+    # PROCESAR COLUMNAS
     for col in df.columns:
 
-        df[col] = pd.to_numeric(
+        # INTENTAR CONVERTIR A NUMÉRICO
+        converted = pd.to_numeric(
             df[col],
-            errors="ignore"
+            errors="coerce"
         )
 
-    # ENCODING COLUMNAS CATEGÓRICAS
-    for col in df.columns:
+        # SI MÁS DEL 80% SON NÚMEROS
+        if converted.notnull().mean() > 0.8:
 
-        if df[col].dtype == "object":
+            df[col] = converted.fillna(0)
 
+        else:
+
+            # CATEGÓRICA
             categorical_values[col] = list(
-                df[col].unique()
+                df[col].astype(str).unique()
             )
 
             encoder = LabelEncoder()
@@ -62,7 +66,7 @@ def preprocess_data(df, target_column):
 
     y = df[target_column]
 
-    # FORZAR FLOAT
+    # ASEGURAR FLOAT
     X = X.astype(float)
 
     feature_columns = X.columns.tolist()
@@ -77,6 +81,7 @@ def preprocess_data(df, target_column):
         columns=feature_columns
     )
 
+    # SPLIT
     X_train, X_test, y_train, y_test = train_test_split(
         X_scaled,
         y,
@@ -154,6 +159,7 @@ def train_models(df, target_column):
             "F1-Score": round(f1, 4)
         })
 
+        # GUARDAR MEJOR MODELO
         if accuracy > best_accuracy:
 
             best_accuracy = accuracy
@@ -197,10 +203,10 @@ def predict_patient(bundle, input_data):
             df[col].astype(str)
         )
 
-    # ASEGURAR ORDEN
+    # ORDENAR COLUMNAS
     df = df[feature_columns]
 
-    # FLOAT
+    # ASEGURAR FLOAT
     df = df.astype(float)
 
     # ESCALAR
