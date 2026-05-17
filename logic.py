@@ -62,19 +62,19 @@ def preprocess_data(df, target_column):
 
     feature_columns = X.columns.tolist()
 
-    # ASEGURAR NUMÉRICOS
-    X = X.apply(pd.to_numeric)
+# COLUMNAS NUMÉRICAS
+numeric_columns = X.select_dtypes(
+    include=['int64', 'float64']
+).columns.tolist()
 
-    # COLUMNAS NUMÉRICAS
-    numeric_columns = X.select_dtypes(
-        include=['int64', 'float64']
-    ).columns
+# ESCALAR SOLO NUMÉRICAS
+scaler = StandardScaler()
 
-    scaler = StandardScaler()
+X[numeric_columns] = scaler.fit_transform(
+    X[numeric_columns]
+)
 
-    X[numeric_columns] = scaler.fit_transform(
-        X[numeric_columns]
-    )
+
 
     X_train, X_test, y_train, y_test = train_test_split(
         X,
