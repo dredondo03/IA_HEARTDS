@@ -1,87 +1,155 @@
+```python
 import streamlit as st
 import pandas as pd
 
 from logic import (
     train_models,
-    compare_models,
+    predict_patient,
     plot_comparison
 )
 
 st.set_page_config(
-    page_title="ML Model Trainer",
+    page_title="Heart Disease AI",
     layout="wide"
 )
 
-st.title("🧠 Machine Learning Trainer")
+st.title("❤️ Heart Disease Prediction")
 
 st.markdown(
-    "Carga un dataset CSV y entrena modelos en tiempo real."
+    "Entrenamiento y predicción en tiempo real"
 )
 
-# SUBIR CSV
+# SUBIR DATASET
 uploaded_file = st.file_uploader(
-    "Upload CSV Dataset",
+    "Upload Heart Dataset",
     type=["csv"]
 )
 
 if uploaded_file is not None:
 
-    # LEER DATASET
     df = pd.read_csv(uploaded_file)
 
     st.subheader("Dataset Preview")
 
     st.dataframe(df.head())
 
-    st.divider()
+    # TARGET
+    target_column = "HeartDisease"
 
-    # SELECCIONAR TARGET
-    target_column = st.selectbox(
-        "Select Target Column",
-        df.columns
-    )
+    st.divider()
 
     if st.button("Train Models"):
 
-        with st.spinner("Training models..."):
+        with st.spinner("Training AI models..."):
 
-            results = train_models(
+            bundle = train_models(
                 df,
                 target_column
             )
 
-            comparison_df = compare_models(
-                results
-            )
-
         st.success("Training completed!")
 
-        st.divider()
+        st.session_state["bundle"] = bundle
 
-        # TABLA
-        st.subheader("Model Comparison")
+# PREDICCIÓN
+if "bundle" in st.session_state:
 
-        st.dataframe(comparison_df)
+    bundle = st.session_state["bundle"]
 
-        st.divider()
+    st.divider()
 
-        # MEJOR MODELO
-        best_model = comparison_df.iloc[0]
+    st.subheader("Patient Prediction")
 
-        st.subheader("Best Model")
+    input_data = {}
 
-        st.info(
-            f"{best_model['Model']} "
-            f"- Accuracy: {best_model['Accuracy']}"
+    feature_columns = bundle["feature_columns"]
+
+    for col in feature_columns:
+
+        if col == "Age":
+
+            input_data[col] = st.slider(
+                "Age",
+                20,
+                100,
+                50
+            )
+
+        elif col == "Cholesterol":
+
+            input_data[col] = st.slider(
+                "Cholesterol",
+                0,
+                600,
+                200
+            )
+
+        elif col == "MaxHR":
+
+            input_data[col] = st.slider(
+                "Max Heart Rate",
+                60,
+                220,
+                150
+            )
+
+        elif col == "Oldpeak":
+
+            input_data[col] = st.slider(
+                "Oldpeak",
+                0.0,
+                6.0,
+                1.0
+            )
+
+        elif col in bundle["categorical_values"]:
+
+            input_data[col] = st.selectbox(
+                col,
+                bundle["categorical_values"][col]
+            )
+
+        else:
+
+            input_data[col] = st.number_input(
+                col,
+                value=0
+            )
+
+    if st.button("Predict Risk"):
+
+        prediction, probability = predict_patient(
+            bundle,
+            input_data
         )
 
-        st.divider()
+        st.subheader("Prediction Result")
 
-        # GRÁFICA
-        st.subheader("Performance Comparison")
+        if prediction == 1:
 
-        fig = plot_comparison(
-            comparison_df
-        )
+            st.error(
+                f"High Risk of Heart Disease ({probability:.2%})"
+            )
 
-        st.pyplot(fig)
+        else:
+
+            st.success(
+                f"Low Risk of Heart Disease ({probability:.2%})"
+            )
+
+    st.divider()
+
+    st.subheader("Model Comparison")
+
+    st.dataframe(bundle["results_df"])
+
+    st.divider()
+
+    st.subheader("Accuracy Comparison")
+
+    fig = plot_comparison(
+        bundle["results_df"]
+    )
+
+    st.pyplot(fig)
+```
