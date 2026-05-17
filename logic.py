@@ -1,4 +1,3 @@
-```python
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -226,4 +225,4 @@ def plot_comparison(df):
     ax.set_ylabel("Accuracy")
 
     return fig
-```
+
