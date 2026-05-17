@@ -1,26 +1,47 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 
-from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import LabelEncoder
+
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score
+)
 
 
-def load_data():
+def preprocess_data(df, target_column):
 
-    data = load_breast_cancer()
+    df = df.copy()
 
-    X = pd.DataFrame(
-        data.data,
-        columns=data.feature_names
-    )
+    # ELIMINAR NULOS
+    df = df.dropna()
 
-    y = data.target
+    # ENCODING AUTOMÁTICO
+    encoders = {}
+
+    for col in df.columns:
+
+        if df[col].dtype == "object":
+
+            encoder = LabelEncoder()
+
+            df[col] = encoder.fit_transform(
+                df[col]
+            )
+
+            encoders[col] = encoder
+
+    X = df.drop(columns=[target_column])
+
+    y = df[target_column]
 
     return train_test_split(
         X,
@@ -30,9 +51,12 @@ def load_data():
     )
 
 
-def train_models():
+def train_models(df, target_column):
 
-    X_train, X_test, y_train, y_test = load_data()
+    X_train, X_test, y_train, y_test = preprocess_data(
+        df,
+        target_column
+    )
 
     models = {
         "Random Forest": RandomForestClassifier(),
@@ -40,7 +64,7 @@ def train_models():
         "SVM": SVC()
     }
 
-    results = {}
+    results = []
 
     for name, model in models.items():
 
@@ -53,69 +77,60 @@ def train_models():
             predictions
         )
 
-        results[name] = {
-            "model": model,
-            "accuracy": accuracy
-        }
+        precision = precision_score(
+            y_test,
+            predictions,
+            average='weighted'
+        )
 
-    best_name = max(
-        results,
-        key=lambda x: results[x]["accuracy"]
-    )
+        recall = recall_score(
+            y_test,
+            predictions,
+            average='weighted'
+        )
 
-    best_model = results[best_name]["model"]
+        f1 = f1_score(
+            y_test,
+            predictions,
+            average='weighted'
+        )
 
-    return models, results, best_model
+        results.append({
+            "Model": name,
+            "Accuracy": round(accuracy, 4),
+            "Precision": round(precision, 4),
+            "Recall": round(recall, 4),
+            "F1-Score": round(f1, 4)
+        })
+
+    return results
 
 
 def compare_models(results):
 
-    data = []
+    df = pd.DataFrame(results)
 
-    for name, info in results.items():
+    df = df.sort_values(
+        by="Accuracy",
+        ascending=False
+    )
 
-        data.append({
-            "Model": name,
-            "Accuracy": round(
-                info["accuracy"],
-                4
-            )
-        })
-
-    return pd.DataFrame(data)
+    return df
 
 
 def plot_comparison(df):
 
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(10, 5))
 
     ax.bar(
         df["Model"],
         df["Accuracy"]
     )
 
-    ax.set_title("Accuracy Comparison")
+    ax.set_title(
+        "Model Accuracy Comparison"
+    )
+
+    ax.set_ylabel("Accuracy")
 
     return fig
-
-
-def make_prediction(
-    model,
-    age,
-    cholesterol,
-    max_hr,
-    oldpeak
-):
-
-    import numpy as np
-
-    sample = np.zeros((1, 30))
-
-    sample[0][0] = age
-    sample[0][1] = cholesterol
-    sample[0][2] = max_hr
-    sample[0][3] = oldpeak
-
-    prediction = model.predict(sample)
-
-    return prediction[0]
