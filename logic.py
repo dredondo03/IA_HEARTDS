@@ -1,4 +1,3 @@
-
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -22,11 +21,25 @@ def preprocess_data(df, target_column):
 
     df = df.copy()
 
+    # LIMPIAR NOMBRES
+    df.columns = df.columns.str.strip()
+
+    # ELIMINAR NULOS
+    df = df.dropna()
+
     encoders = {}
 
     categorical_values = {}
 
-    # ENCODING
+    # CONVERTIR STRINGS NUMÉRICOS
+    for col in df.columns:
+
+        try:
+            df[col] = pd.to_numeric(df[col])
+        except:
+            pass
+
+    # ENCODING SOLO OBJECTS
     for col in df.columns:
 
         if df[col].dtype == "object":
@@ -38,7 +51,7 @@ def preprocess_data(df, target_column):
             encoder = LabelEncoder()
 
             df[col] = encoder.fit_transform(
-                df[col]
+                df[col].astype(str)
             )
 
             encoders[col] = encoder
@@ -49,13 +62,22 @@ def preprocess_data(df, target_column):
 
     feature_columns = X.columns.tolist()
 
-    # SCALING
+    # ASEGURAR NUMÉRICOS
+    X = X.apply(pd.to_numeric)
+
+    # COLUMNAS NUMÉRICAS
+    numeric_columns = X.select_dtypes(
+        include=['int64', 'float64']
+    ).columns
+
     scaler = StandardScaler()
 
-    X_scaled = scaler.fit_transform(X)
+    X[numeric_columns] = scaler.fit_transform(
+        X[numeric_columns]
+    )
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled,
+        X,
         y,
         test_size=0.2,
         random_state=42
@@ -69,7 +91,8 @@ def preprocess_data(df, target_column):
         encoders,
         scaler,
         feature_columns,
-        categorical_values
+        categorical_values,
+        numeric_columns
     )
 
 
@@ -83,7 +106,8 @@ def train_models(df, target_column):
         encoders,
         scaler,
         feature_columns,
-        categorical_values
+        categorical_values,
+        numeric_columns
     ) = preprocess_data(df, target_column)
 
     models = {
@@ -149,7 +173,8 @@ def train_models(df, target_column):
         "scaler": scaler,
         "feature_columns": feature_columns,
         "categorical_values": categorical_values,
-        "results_df": results_df
+        "results_df": results_df,
+        "numeric_columns": numeric_columns
     }
 
     return bundle
@@ -163,21 +188,25 @@ def predict_patient(bundle, input_data):
 
     scaler = bundle["scaler"]
 
+    numeric_columns = bundle["numeric_columns"]
+
     df = pd.DataFrame([input_data])
 
     # ENCODING
     for col, encoder in encoders.items():
 
-        df[col] = encoder.transform(df[col])
+        df[col] = encoder.transform(
+            df[col].astype(str)
+        )
 
-    # SCALING
-    scaled = scaler.transform(df)
+    # NUMÉRICOS
+    df[numeric_columns] = scaler.transform(
+        df[numeric_columns]
+    )
 
-    prediction = model.predict(scaled)[0]
+    prediction = model.predict(df)[0]
 
-    probability = model.predict_proba(
-        scaled
-    )[0][1]
+    probability = model.predict_proba(df)[0][1]
 
     return prediction, probability
 
